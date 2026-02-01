@@ -58,6 +58,14 @@ function App() {
               filename: ''
             });
           });
+          // Sort: matched first, then by layer name (natural sort)
+          initialAssignments.sort((a, b) => {
+            // Matched (has filename) comes before unmatched
+            if (a.filename && !b.filename) return -1;
+            if (!a.filename && b.filename) return 1;
+            // Within same group, sort by layer name
+            return a.layerName.localeCompare(b.layerName, undefined, { numeric: true, sensitivity: 'base' });
+          });
           setAssignments(initialAssignments);
           setState('previewing');
           break;
