@@ -1,0 +1,27 @@
+{
+  "name": "bulk-image-replacer",
+  "version": "1.0.0",
+  "description": "Bulk replace images in Figma by matching layer names to filenames",
+  "scripts": {
+    "dev": "concurrently -n plugin,ui \"npm run build:main -- --watch\" \"npm run build:ui -- --watch\"",
+    "build": "npm run build:ui && npm run build:main -- --minify",
+    "build:main": "esbuild plugin-src/code.ts --bundle --outfile=dist/code.js --target=es6",
+    "build:ui": "vite build --emptyOutDir=false",
+    "tsc": "tsc --noEmit -p plugin-src && tsc --noEmit -p ui-src"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.98.0",
+    "@types/react": "^18.2.38",
+    "@types/react-dom": "^18.2.16",
+    "@vitejs/plugin-react": "^4.2.0",
+    "concurrently": "^8.2.2",
+    "esbuild": "^0.19.7",
+    "typescript": "^5.3.2",
+    "vite": "^5.0.0",
+    "vite-plugin-singlefile": "^0.13.5"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  }
+}

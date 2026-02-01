@@ -1,0 +1,13 @@
+{
+  "name": "Bulk Image Replacer",
+  "id": "bulk-image-replacer-by-layer-name",
+  "api": "1.0.0",
+  "editorType": ["figma"],
+  "permissions": [],
+  "main": "dist/code.js",
+  "ui": "dist/index.html",
+  "networkAccess": {
+    "allowedDomains": ["none"]
+  },
+  "documentAccess": "dynamic-page"
+}
