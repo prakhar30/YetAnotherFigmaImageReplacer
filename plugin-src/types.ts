@@ -5,6 +5,7 @@ export interface ImageFileData {
   normalizedName: string;     // Normalized for matching (e.g., "xyz 1")
   bytes: number[];            // Raw image bytes as array (Uint8Array not transferable via postMessage)
   size: number;               // File size in bytes
+  thumbnail?: string;         // Base64 data URL for preview (UI only, not sent to plugin)
 }
 
 export interface LayerInfo {
@@ -32,11 +33,18 @@ export interface MatchPreview {
   totalFiles: number;
 }
 
+// Mapping of layerId to filename for custom assignments
+export interface LayerFileAssignment {
+  layerId: string;
+  layerName: string;
+  filename: string;  // Empty string means unassigned
+}
+
 // Messages from UI to Plugin
 export type UIToPluginMessage =
   | { type: 'get-layers'; scope: 'selection' | 'page' | 'document' }
   | { type: 'preview-matches'; files: ImageFileData[] }
-  | { type: 'execute-replacement'; files: ImageFileData[]; matchedLayerIds: string[] }
+  | { type: 'execute-replacement'; files: ImageFileData[]; assignments: LayerFileAssignment[] }
   | { type: 'cancel' };
 
 // Messages from Plugin to UI

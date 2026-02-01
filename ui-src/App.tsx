@@ -5,7 +5,8 @@ import type {
   MatchPreview,
   MatchResult,
   PluginToUIMessage,
-  UIToPluginMessage
+  UIToPluginMessage,
+  LayerFileAssignment
 } from '../plugin-src/types';
 import FolderSelector from './components/FolderSelector';
 import PreviewTable from './components/PreviewTable';
@@ -21,6 +22,7 @@ function App() {
   const [files, setFiles] = useState<ImageFileData[]>([]);
   const [layers, setLayers] = useState<LayerInfo[]>([]);
   const [preview, setPreview] = useState<MatchPreview | null>(null);
+  const [assignments, setAssignments] = useState<LayerFileAssignment[]>([]);
   const [progress, setProgress] = useState({ completed: 0, total: 0, current: '' });
   const [results, setResults] = useState<MatchResult[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +44,21 @@ function App() {
           break;
         case 'match-preview':
           setPreview(msg.preview);
+          // Initialize assignments from matches
+          const initialAssignments: LayerFileAssignment[] = msg.preview.matches.map(m => ({
+            layerId: m.layerId,
+            layerName: m.layerName,
+            filename: m.filename
+          }));
+          // Also add unmatched layers with image fills so user can assign files to them
+          msg.preview.unmatchedLayers.forEach(layer => {
+            initialAssignments.push({
+              layerId: layer.id,
+              layerName: layer.name,
+              filename: ''
+            });
+          });
+          setAssignments(initialAssignments);
           setState('previewing');
           break;
         case 'replacement-progress':
@@ -77,24 +94,33 @@ function App() {
     sendToPlugin({ type: 'preview-matches', files: selectedFiles });
   }, [sendToPlugin]);
 
+  // Handle assignment change
+  const handleAssignmentChange = useCallback((layerId: string, filename: string) => {
+    setAssignments(prev => prev.map(a =>
+      a.layerId === layerId ? { ...a, filename } : a
+    ));
+  }, []);
+
   // Execute replacement
   const handleExecute = useCallback(() => {
-    if (!preview) return;
+    // Only include assignments that have a file selected
+    const validAssignments = assignments.filter(a => a.filename);
+    if (validAssignments.length === 0) return;
 
-    const matchedIds = preview.matches.map(m => m.layerId);
     setState('replacing');
     sendToPlugin({
       type: 'execute-replacement',
       files,
-      matchedLayerIds: matchedIds
+      assignments: validAssignments
     });
-  }, [preview, files, sendToPlugin]);
+  }, [assignments, files, sendToPlugin]);
 
   // Reset to start
   const handleReset = useCallback(() => {
     setState('select-folder');
     setFiles([]);
     setPreview(null);
+    setAssignments([]);
     setProgress({ completed: 0, total: 0, current: '' });
     setResults([]);
     setError(null);
@@ -104,6 +130,8 @@ function App() {
   const handleCancel = useCallback(() => {
     sendToPlugin({ type: 'cancel' });
   }, [sendToPlugin]);
+
+  const validAssignmentCount = assignments.filter(a => a.filename).length;
 
   return (
     <div className="app">
@@ -142,7 +170,12 @@ function App() {
 
       {state === 'previewing' && preview && (
         <div className="section">
-          <PreviewTable preview={preview} />
+          <PreviewTable
+            preview={preview}
+            files={files}
+            assignments={assignments}
+            onAssignmentChange={handleAssignmentChange}
+          />
 
           <div className="actions">
             <button className="secondary" onClick={handleReset}>
@@ -151,9 +184,9 @@ function App() {
             <button
               className="primary"
               onClick={handleExecute}
-              disabled={preview.matches.length === 0}
+              disabled={validAssignmentCount === 0}
             >
-              Replace {preview.matches.length} image{preview.matches.length !== 1 ? 's' : ''}
+              Replace {validAssignmentCount} image{validAssignmentCount !== 1 ? 's' : ''}
             </button>
           </div>
         </div>

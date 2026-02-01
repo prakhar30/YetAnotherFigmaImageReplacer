@@ -4,7 +4,8 @@ import type {
   ImageFileData,
   LayerInfo,
   MatchResult,
-  MatchPreview
+  MatchPreview,
+  LayerFileAssignment
 } from './types';
 import { normalizeName, findExactMatch } from './utils/matching';
 import {
@@ -96,46 +97,45 @@ function createMatchPreview(files: ImageFileData[], layers: LayerInfo[]): MatchP
 }
 
 /**
- * Replaces image fills on matched layers
+ * Replaces image fills on matched layers using explicit assignments
  */
 async function executeReplacement(
   files: ImageFileData[],
-  matchedLayerIds: string[]
+  assignments: LayerFileAssignment[]
 ): Promise<MatchResult[]> {
   const results: MatchResult[] = [];
-  const total = matchedLayerIds.length;
+  const total = assignments.length;
   let completed = 0;
 
-  // Create a map of normalized names to file data
+  // Create a map of filename to file data
   const fileMap = new Map<string, ImageFileData>();
   for (const file of files) {
-    fileMap.set(file.normalizedName, file);
+    fileMap.set(file.filename, file);
   }
 
-  for (const layerId of matchedLayerIds) {
-    const node = await figma.getNodeByIdAsync(layerId) as SceneNode & { fills: Paint[] };
+  for (const assignment of assignments) {
+    const node = await figma.getNodeByIdAsync(assignment.layerId) as SceneNode & { fills: Paint[] };
 
     if (!node) {
       results.push({
-        layerId,
-        layerName: 'Unknown',
-        filename: '',
+        layerId: assignment.layerId,
+        layerName: assignment.layerName,
+        filename: assignment.filename,
         status: 'error',
         error: 'Layer no longer exists'
       });
       continue;
     }
 
-    const normalizedLayerName = normalizeName(node.name);
-    const file = fileMap.get(normalizedLayerName);
+    const file = fileMap.get(assignment.filename);
 
     if (!file) {
       results.push({
-        layerId,
+        layerId: assignment.layerId,
         layerName: node.name,
-        filename: '',
+        filename: assignment.filename,
         status: 'error',
-        error: 'No matching file found'
+        error: 'File not found'
       });
       continue;
     }
@@ -183,7 +183,7 @@ async function executeReplacement(
       node.fills = newFills;
 
       results.push({
-        layerId,
+        layerId: assignment.layerId,
         layerName: node.name,
         filename: file.filename,
         status: 'replaced'
@@ -199,9 +199,9 @@ async function executeReplacement(
 
     } catch (error) {
       results.push({
-        layerId,
+        layerId: assignment.layerId,
         layerName: node.name,
-        filename: file.filename,
+        filename: assignment.filename,
         status: 'error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -231,7 +231,7 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
       }
 
       case 'execute-replacement': {
-        const results = await executeReplacement(msg.files, msg.matchedLayerIds);
+        const results = await executeReplacement(msg.files, msg.assignments);
         sendToUI({ type: 'replacement-complete', results });
         figma.notify(`Replaced ${results.filter(r => r.status === 'replaced').length} images`);
         break;

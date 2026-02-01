@@ -1,61 +1,102 @@
 import React from 'react';
-import type { MatchPreview } from '../../plugin-src/types';
+import type { MatchPreview, LayerFileAssignment, ImageFileData } from '../../plugin-src/types';
 
 interface Props {
   preview: MatchPreview;
+  files: ImageFileData[];
+  assignments: LayerFileAssignment[];
+  onAssignmentChange: (layerId: string, filename: string) => void;
 }
 
-export default function PreviewTable({ preview }: Props) {
+export default function PreviewTable({ preview, files, assignments, onAssignmentChange }: Props) {
+  // Create a map for quick thumbnail lookup
+  const thumbnailMap = new Map<string, string>();
+  files.forEach(f => {
+    if (f.thumbnail) {
+      thumbnailMap.set(f.filename, f.thumbnail);
+    }
+  });
+
+  // Get the current filename for a layer
+  const getAssignedFile = (layerId: string): string => {
+    const assignment = assignments.find(a => a.layerId === layerId);
+    return assignment?.filename || '';
+  };
+
+  // Get thumbnail for a filename
+  const getThumbnail = (filename: string): string | undefined => {
+    return thumbnailMap.get(filename);
+  };
+
+  // Get files that are already assigned (for showing which are taken)
+  const assignedFiles = new Set(assignments.map(a => a.filename).filter(f => f));
+
   return (
     <div className="preview-table">
       <div className="summary">
         <div className="stat matched">
-          <span className="number">{preview.matches.length}</span>
-          <span className="label">Matches found</span>
+          <span className="number">{assignments.filter(a => a.filename).length}</span>
+          <span className="label">Assignments</span>
         </div>
         <div className="stat unmatched">
-          <span className="number">{preview.unmatchedFiles.length}</span>
-          <span className="label">Unmatched files</span>
+          <span className="number">{files.length - assignedFiles.size}</span>
+          <span className="label">Unassigned files</span>
         </div>
       </div>
 
-      {preview.matches.length > 0 && (
+      {assignments.length > 0 && (
         <div className="matches-section">
-          <h3>Will be replaced:</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Layer Name</th>
-                <th>File</th>
-              </tr>
-            </thead>
-            <tbody>
-              {preview.matches.map((match) => (
-                <tr key={match.layerId}>
-                  <td className="layer-name">{match.layerName}</td>
-                  <td className="filename">{match.filename}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <h3>Layer Assignments:</h3>
+          <div className="assignment-list">
+            {assignments.map((assignment) => {
+              const currentFile = getAssignedFile(assignment.layerId);
+              const thumbnail = currentFile ? getThumbnail(currentFile) : undefined;
+
+              return (
+                <div key={assignment.layerId} className="assignment-row">
+                  <div className="layer-info">
+                    <span className="layer-name">{assignment.layerName}</span>
+                  </div>
+                  <div className="assignment-arrow">→</div>
+                  <div className="file-selector">
+                    {thumbnail && (
+                      <div className="thumbnail">
+                        <img src={thumbnail} alt={currentFile} />
+                      </div>
+                    )}
+                    {!thumbnail && currentFile === '' && (
+                      <div className="thumbnail empty">
+                        <span>?</span>
+                      </div>
+                    )}
+                    <select
+                      className="file-select"
+                      value={currentFile}
+                      onChange={(e) => onAssignmentChange(assignment.layerId, e.target.value)}
+                    >
+                      <option value="">-- Select --</option>
+                      {files.map((file) => (
+                        <option
+                          key={file.filename}
+                          value={file.filename}
+                        >
+                          {file.filename}
+                          {assignedFiles.has(file.filename) && currentFile !== file.filename ? ' ✓' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
-      {preview.unmatchedFiles.length > 0 && (
-        <div className="unmatched-section">
-          <h3>No matching layer found for:</h3>
-          <ul className="unmatched-list">
-            {preview.unmatchedFiles.map((filename) => (
-              <li key={filename}>{filename}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {preview.unmatchedLayers.length > 0 && preview.matches.length > 0 && (
+      {preview.unmatchedLayers.length > 0 && (
         <details className="unmatched-layers">
           <summary>
-            {preview.unmatchedLayers.length} layer{preview.unmatchedLayers.length !== 1 ? 's' : ''} with images won't be replaced
+            {preview.unmatchedLayers.length} other layer{preview.unmatchedLayers.length !== 1 ? 's' : ''} with images
           </summary>
           <ul>
             {preview.unmatchedLayers.slice(0, 10).map((layer) => (

@@ -14,6 +14,16 @@ function normalizeName(filename: string): string {
     .trim();
 }
 
+// Read file as data URL for thumbnail
+function readAsDataURL(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function FolderSelector({ onFilesSelected }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -33,15 +43,19 @@ export default function FolderSelector({ onFilesSelected }: Props) {
         // Filter to only image files
         if (!validExtensions.test(file.name)) continue;
 
-        // Read file as ArrayBuffer
+        // Read file as ArrayBuffer for plugin
         const arrayBuffer = await file.arrayBuffer();
         const bytes = new Uint8Array(arrayBuffer);
+
+        // Read file as data URL for thumbnail
+        const thumbnail = await readAsDataURL(file);
 
         imageFiles.push({
           filename: file.name,
           normalizedName: normalizeName(file.name),
-          bytes: Array.from(bytes), // Convert to regular array for postMessage
-          size: file.size
+          bytes: Array.from(bytes),
+          size: file.size,
+          thumbnail
         });
       }
 
